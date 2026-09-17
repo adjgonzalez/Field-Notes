@@ -56,6 +56,14 @@ document.querySelector('[data-clear-image]').addEventListener('click', () => {
   imageInput.value = '';
   imagePreview.hidden = true;
 });
+notesGrid.addEventListener('click', (event) => {
+  const deleteButton = event.target.closest('[data-delete-note]');
+  if (!deleteButton || !confirm('Delete this note?')) return;
+  const posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+  const remainingPosts = posts.filter((post) => String(post.id) !== deleteButton.dataset.deleteNote);
+  localStorage.setItem(postsKey, JSON.stringify(remainingPosts));
+  renderPosts();
+});
 
 captureForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -86,11 +94,12 @@ function prettyDate(date) {
 }
 function renderPosts() {
   const posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
+  notesGrid.replaceChildren();
   posts.forEach((post) => {
     const card = document.createElement('article');
     card.className = `note-card ${post.image ? 'note-card-photo' : 'note-card-plain'}`;
     const image = post.image ? `<div class="note-image" style="background-image:url('${post.image}')" role="img" aria-label="Photo from ${post.title}"></div>` : '';
-    card.innerHTML = `${image}<div class="note-content"><p class="post-meta">${prettyDate(post.date)} <span>•</span> ${post.location || 'FIELD NOTE'}</p><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(post.body).slice(0, 100)}${post.body.length > 100 ? '…' : ''}</p><span class="note-arrow">↗</span></div>`;
+    card.innerHTML = `${image}<div class="note-content"><p class="post-meta">${prettyDate(post.date)} <span>•</span> ${post.location || 'FIELD NOTE'}</p><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(post.body).slice(0, 100)}${post.body.length > 100 ? '…' : ''}</p><button class="delete-note" type="button" data-delete-note="${post.id}">Delete</button><span class="note-arrow">↗</span></div>`;
     notesGrid.prepend(card);
   });
   emptyState.hidden = posts.length > 0;
