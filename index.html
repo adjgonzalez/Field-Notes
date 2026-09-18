@@ -31,11 +31,6 @@
         <p class="intro-text">Places, observations, and the things worth remembering.</p>
         <button class="primary-button" data-open-capture><span class="button-icon">＋</span> Make a new note</button>
       </div>
-      <div class="intro-stamp" aria-hidden="true">
-        <span>FIELD</span>
-        <strong>NOTES</strong>
-        <span>PERSONAL LOG</span>
-      </div>
     </section>
 
     <section class="notes wrap" id="notes" aria-labelledby="notes-title">
@@ -43,15 +38,12 @@
         <div><p class="kicker">The notebook</p><h2 id="notes-title">Recent notes</h2></div>
         <button class="filter-button" data-filter><span>All notes</span>⌄</button>
       </div>
-      <div class="notes-grid" id="notes-grid"></div>
+      <div class="carousel-shell">
+        <button class="carousel-button carousel-prev" type="button" data-carousel-prev aria-label="Previous notes">←</button>
+        <div class="notes-grid" id="notes-grid"></div>
+        <button class="carousel-button carousel-next" type="button" data-carousel-next aria-label="Next notes">→</button>
+      </div>
       <div class="empty-state" id="empty-state">No notes published yet. Capture the first one when you are ready.</div>
-      <nav class="pagination" id="pagination" aria-label="Notes pages" hidden></nav>
-    </section>
-
-    <section class="sign-off wrap">
-      <div class="sign-off-line"></div>
-      <p>Collected slowly, shared occasionally.</p>
-      <span>R</span>
     </section>
   </main>
 
@@ -103,7 +95,6 @@
     </form>
   </dialog>
 
-  <footer class="site-footer wrap"><span>© Ruben's Field Notes</span><span>Collected on the move</span></footer>
   <script type="module" src="app.js"></script>
 </body>
 </html>

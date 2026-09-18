@@ -27,7 +27,9 @@ const cropX = document.querySelector('#crop-x');
 const cropY = document.querySelector('#crop-y');
 const notesGrid = document.querySelector('#notes-grid');
 const emptyState = document.querySelector('#empty-state');
-const pagination = document.querySelector('#pagination');
+const carousel = document.querySelector('#notes-grid');
+const previousButton = document.querySelector('[data-carousel-prev]');
+const nextButton = document.querySelector('[data-carousel-next]');
 const noteDialog = document.querySelector('#note-dialog');
 const viewerImageWrap = document.querySelector('#viewer-image-wrap');
 const viewerImage = document.querySelector('#viewer-image');
@@ -40,9 +42,7 @@ let selectedImage = '';
 let selectedImages = [];
 let thumbnailCrop = { zoom: 100, x: 50, y: 50 };
 let posts = [];
-let currentPage = 1;
 let dragStart = null;
-const pageSize = 6;
 
 const openCapture = () => {
   const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
@@ -52,10 +52,10 @@ const openCapture = () => {
     document.querySelector('#post-date').value = draft.date || '';
     document.querySelector('#post-body').value = draft.body || '';
   }
-  captureDialog.showModal();
+  openDialog(captureDialog);
 };
 document.querySelectorAll('[data-open-capture]').forEach((button) => button.addEventListener('click', openCapture));
-document.querySelector('[data-close-capture]').addEventListener('click', () => captureDialog.close());
+document.querySelector('[data-close-capture]').addEventListener('click', () => closeDialog(captureDialog));
 
 document.querySelector('[data-save-draft]').addEventListener('click', () => {
   const data = formData();
@@ -90,7 +90,6 @@ function addFiles(files) {
   }).catch((error) => {
     uploadStatus.textContent = 'A photo could not be processed. Try another image.';
     console.error(error);
-  });
   });
 }
 document.querySelector('[data-clear-image]').addEventListener('click', clearImages);
@@ -202,14 +201,9 @@ notesGrid.addEventListener('click', async (event) => {
   const noteButton = event.target.closest('[data-open-note]');
   if (noteButton) openNote(noteButton.dataset.openNote);
 });
-document.querySelector('[data-close-note]').addEventListener('click', () => noteDialog.close());
-pagination.addEventListener('click', (event) => {
-  const pageButton = event.target.closest('[data-page]');
-  if (!pageButton) return;
-  currentPage = Number(pageButton.dataset.page);
-  renderPosts();
-  document.querySelector('#notes').scrollIntoView({ behavior: 'smooth' });
-});
+document.querySelector('[data-close-note]').addEventListener('click', () => closeDialog(noteDialog));
+previousButton.addEventListener('click', () => carousel.scrollBy({ left: -carousel.clientWidth * .82, behavior: 'smooth' }));
+nextButton.addEventListener('click', () => carousel.scrollBy({ left: carousel.clientWidth * .82, behavior: 'smooth' }));
 
 captureForm.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -236,7 +230,7 @@ captureForm.addEventListener('submit', async (event) => {
     captureForm.reset();
     selectedImage = '';
     clearImages();
-    captureDialog.close();
+    closeDialog(captureDialog);
     uploadStatus.textContent = '';
     document.querySelector('#notes').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
@@ -274,10 +268,7 @@ function prettyDate(date) {
 }
 function renderPosts() {
   notesGrid.replaceChildren();
-  const pageCount = Math.ceil(posts.length / pageSize);
-  currentPage = Math.min(currentPage, Math.max(pageCount, 1));
-  const pagePosts = posts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  pagePosts.forEach((post) => {
+  posts.forEach((post) => {
     const card = document.createElement('article');
     card.className = `note-card ${post.image ? 'note-card-photo' : 'note-card-plain'}`;
     card.dataset.openNote = post.id;
@@ -286,21 +277,8 @@ function renderPosts() {
     notesGrid.prepend(card);
   });
   emptyState.hidden = posts.length > 0;
-  renderPagination(pageCount);
-}
-function renderPagination(pageCount) {
-  pagination.hidden = pageCount <= 1;
-  pagination.replaceChildren();
-  for (let page = 1; page <= pageCount; page += 1) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = `page-button${page === currentPage ? ' is-active' : ''}`;
-    button.dataset.page = page;
-    button.textContent = page;
-    button.setAttribute('aria-label', `Go to notes page ${page}`);
-    button.setAttribute('aria-current', page === currentPage ? 'page' : 'false');
-    pagination.append(button);
-  }
+  previousButton.hidden = posts.length < 2;
+  nextButton.hidden = posts.length < 2;
 }
 function openNote(noteId) {
   const post = posts.find((note) => note.id === noteId);
@@ -317,7 +295,23 @@ function openNote(noteId) {
     imageElement.alt = `${post.title}, image ${index + 1}`;
     viewerImageWrap.append(imageElement);
   });
-  noteDialog.showModal();
+  openDialog(noteDialog);
+}
+function openDialog(dialog) {
+  if (typeof dialog.showModal === 'function') {
+    dialog.showModal();
+    return;
+  }
+  dialog.setAttribute('open', '');
+  dialog.classList.add('dialog-fallback-open');
+}
+function closeDialog(dialog) {
+  if (typeof dialog.close === 'function') {
+    dialog.close();
+    return;
+  }
+  dialog.removeAttribute('open');
+  dialog.classList.remove('dialog-fallback-open');
 }
 function escapeHtml(value) {
   return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
