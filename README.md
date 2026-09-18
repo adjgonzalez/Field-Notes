@@ -28,13 +28,15 @@ Published notes are stored in the Firebase project configured in `app.js`, so th
 
 1. Open **Build → Firestore Database** and click **Create database**.
 2. Choose a location and select **Start in test mode** while setting up.
-3. Open **Build → Firestore Database → Rules** and replace the temporary rules before the test period ends.
+3. Create a free Cloudinary account and create an unsigned upload preset named `field-notes`.
+4. The Cloudinary cloud name and preset are configured in `app.js`. Photos are compressed in the browser and uploaded to Cloudinary; Firestore stores their URLs.
+5. Open **Build → Firestore Database → Rules** and replace the temporary rules before the test period ends.
 
 The site must be opened from `http://localhost:8000` or the GitHub Pages URL. Opening `index.html` directly with a `file://` URL will block the Firebase module imports.
 
 ## How posting works
 
-Published notes and photos are stored in Firestore, so they appear on every device. Drafts remain in the browser's `localStorage` until they are published.
+Published note text and Cloudinary photo URLs are stored in Firestore, so they appear on every device. Drafts remain in the browser's `localStorage` until they are published.
 
 For permanent public posts, add a new article card in `index.html` and copy any image into the repository (for example, an `images/` folder), then push the change to GitHub. This keeps your blog fully static and free to host.
 

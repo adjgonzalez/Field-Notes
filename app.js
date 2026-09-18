@@ -13,11 +13,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getFirestore(app);
 const notesCollection = collection(database, 'notes');
+const cloudinaryCloudName = 'xmpt1lso';
+const cloudinaryUploadPreset = 'field-notes';
 const captureDialog = document.querySelector('#capture-dialog');
 const captureForm = document.querySelector('#capture-form');
 const imageInput = document.querySelector('#post-image');
-const imagePreview = document.querySelector('#image-preview');
+const imageEditor = document.querySelector('#image-editor');
 const previewImage = document.querySelector('#preview-image');
+const imageList = document.querySelector('#image-list');
+const cropZoom = document.querySelector('#crop-zoom');
+const cropX = document.querySelector('#crop-x');
+const cropY = document.querySelector('#crop-y');
 const notesGrid = document.querySelector('#notes-grid');
 const emptyState = document.querySelector('#empty-state');
 const pagination = document.querySelector('#pagination');
@@ -27,8 +33,11 @@ const viewerImage = document.querySelector('#viewer-image');
 const viewerMeta = document.querySelector('#viewer-meta');
 const viewerTitle = document.querySelector('#note-dialog-title');
 const viewerCopy = document.querySelector('#viewer-copy');
+const uploadStatus = document.querySelector('#upload-status');
 const draftKey = 'rubens-field-note-draft';
 let selectedImage = '';
+let selectedImages = [];
+let thumbnailCrop = { zoom: 100, x: 50, y: 50 };
 let posts = [];
 let currentPage = 1;
 const pageSize = 6;
@@ -64,30 +73,89 @@ document.querySelector('[data-export-note]').addEventListener('click', () => {
 });
 
 imageInput.addEventListener('change', () => {
-  const [file] = imageInput.files;
-  if (!file) return;
-  const reader = new FileReader();
-  reader.addEventListener('load', () => {
-    const image = new Image();
-    image.addEventListener('load', () => {
-      const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+  selectedImages = [];
+  selectedImage = '';
+  uploadStatus.textContent = imageInput.files.length ? 'Processing photos...' : '';
+  Promise.all([...imageInput.files].map(compressImage)).then((images) => {
+    selectedImages = images;
+    if (selectedImages.length) {
+      selectedImage = selectedImages[0].src;
+      thumbnailCrop = { zoom: 100, x: 50, y: 50 };
+    }
+    renderImageEditor();
+    uploadStatus.textContent = selectedImages.length ? `${selectedImages.length} photo${selectedImages.length === 1 ? '' : 's'} ready` : '';
+  }).catch((error) => {
+    uploadStatus.textContent = 'A photo could not be processed. Try another image.';
+    console.error(error);
+  });
+});
+document.querySelector('[data-clear-image]').addEventListener('click', clearImages);
+cropZoom.addEventListener('input', updateCrop);
+cropX.addEventListener('input', updateCrop);
+cropY.addEventListener('input', updateCrop);
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener('error', () => reject(reader.error));
+    reader.addEventListener('load', () => {
+      const image = new Image();
+      image.addEventListener('error', () => reject(new Error('Image could not be decoded')));
+      image.addEventListener('load', () => {
+      const scale = Math.min(1, 1000 / Math.max(image.naturalWidth, image.naturalHeight));
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(image.naturalWidth * scale);
       canvas.height = Math.round(image.naturalHeight * scale);
       canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-      selectedImage = canvas.toDataURL('image/jpeg', .78);
-      previewImage.src = selectedImage;
-      imagePreview.hidden = false;
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Image compression failed'));
+          return;
+        }
+        resolve({ src: canvas.toDataURL('image/jpeg', .72), blob, name: file.name });
+      }, 'image/jpeg', .72);
     });
     image.src = reader.result;
   });
   reader.readAsDataURL(file);
+  });
+}
+function renderImageEditor() {
+  imageEditor.hidden = selectedImages.length === 0;
+  previewImage.src = selectedImage;
+  previewImage.style.objectPosition = `${thumbnailCrop.x}% ${thumbnailCrop.y}%`;
+  previewImage.style.transform = `scale(${thumbnailCrop.zoom / 100})`;
+  cropZoom.value = thumbnailCrop.zoom;
+  cropX.value = thumbnailCrop.x;
+  cropY.value = thumbnailCrop.y;
+  imageList.replaceChildren();
+  selectedImages.forEach((image, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `image-choice${image.src === selectedImage ? ' is-selected' : ''}`;
+    button.dataset.imageIndex = index;
+    button.innerHTML = `<img src="${image.src}" alt="${escapeHtml(image.name)}"><span>${index + 1}</span>`;
+    imageList.append(button);
+  });
+}
+imageList.addEventListener('click', (event) => {
+  const choice = event.target.closest('[data-image-index]');
+  if (!choice) return;
+  selectedImage = selectedImages[Number(choice.dataset.imageIndex)].src;
+  thumbnailCrop = { zoom: 100, x: 50, y: 50 };
+  renderImageEditor();
 });
-document.querySelector('[data-clear-image]').addEventListener('click', () => {
+function updateCrop() {
+  thumbnailCrop = { zoom: Number(cropZoom.value), x: Number(cropX.value), y: Number(cropY.value) };
+  renderImageEditor();
+}
+function clearImages() {
   selectedImage = '';
+  selectedImages = [];
   imageInput.value = '';
-  imagePreview.hidden = true;
-});
+  imageEditor.hidden = true;
+  uploadStatus.textContent = '';
+}
 notesGrid.addEventListener('click', async (event) => {
   const deleteButton = event.target.closest('[data-delete-note]');
   if (deleteButton) {
@@ -117,15 +185,32 @@ captureForm.addEventListener('submit', async (event) => {
   const publishButton = captureForm.querySelector('[type="submit"]');
   publishButton.disabled = true;
   try {
-    await addDoc(notesCollection, { ...formData(), image: selectedImage, createdAt: serverTimestamp() });
+    if (imageInput.files.length && selectedImages.length !== imageInput.files.length) {
+      uploadStatus.textContent = 'Please wait for the photos to finish processing.';
+      return;
+    }
+    uploadStatus.textContent = 'Uploading note...';
+    const uploadedImages = await Promise.all(selectedImages.map(uploadToCloudinary));
+    const thumbnailIndex = Math.max(0, selectedImages.findIndex((image) => image.src === selectedImage));
+    await addDoc(notesCollection, {
+      ...formData(),
+      image: uploadedImages[thumbnailIndex] || '',
+      images: uploadedImages,
+      cropZoom: thumbnailCrop.zoom,
+      cropX: thumbnailCrop.x,
+      cropY: thumbnailCrop.y,
+      createdAt: serverTimestamp(),
+    });
     localStorage.removeItem(draftKey);
     captureForm.reset();
     selectedImage = '';
-    imagePreview.hidden = true;
+    clearImages();
     captureDialog.close();
+    uploadStatus.textContent = '';
     document.querySelector('#notes').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
-    alert('The note could not be published. Check that Firestore is enabled in Firebase.');
+    uploadStatus.textContent = 'Publish failed. Check Cloudinary and Firestore setup.';
+    alert('The note could not be published. Check that Cloudinary and Firestore are configured.');
     console.error(error);
   } finally {
     publishButton.disabled = false;
@@ -140,6 +225,18 @@ function formData() {
     body: document.querySelector('#post-body').value,
   };
 }
+async function uploadToCloudinary(image) {
+  const formData = new FormData();
+  formData.append('file', image.blob, image.name);
+  formData.append('upload_preset', cloudinaryUploadPreset);
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) throw new Error(`Cloudinary upload failed: ${response.status}`);
+  const result = await response.json();
+  return result.secure_url;
+}
 function prettyDate(date) {
   if (!date) return 'JUST NOW';
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
@@ -153,7 +250,7 @@ function renderPosts() {
     const card = document.createElement('article');
     card.className = `note-card ${post.image ? 'note-card-photo' : 'note-card-plain'}`;
     card.dataset.openNote = post.id;
-    const image = post.image ? `<div class="note-image" style="background-image:url('${post.image}')" role="img" aria-label="Photo from ${escapeHtml(post.title)}"></div>` : '';
+    const image = post.image ? `<div class="note-image" style="background-image:url('${post.image}'); background-position:${post.cropX || 50}% ${post.cropY || 50}%; background-size:${post.cropZoom || 100}%" role="img" aria-label="Photo from ${escapeHtml(post.title)}"></div>` : '';
     card.innerHTML = `${image}<div class="note-content"><button class="note-open" type="button" data-open-note="${post.id}"><p class="post-meta">${prettyDate(post.date)} <span>•</span> ${escapeHtml(post.location || 'FIELD NOTE')}</p><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(post.body).slice(0, 100)}${post.body.length > 100 ? '…' : ''}</p></button><button class="delete-note" type="button" data-delete-note="${post.id}">Delete</button><span class="note-arrow">↗</span></div>`;
     notesGrid.prepend(card);
   });
@@ -180,11 +277,15 @@ function openNote(noteId) {
   viewerMeta.textContent = `${prettyDate(post.date)}  •  ${post.location || 'FIELD NOTE'}`;
   viewerTitle.textContent = post.title;
   viewerCopy.textContent = post.body;
-  viewerImageWrap.hidden = !post.image;
-  if (post.image) {
-    viewerImage.src = post.image;
-    viewerImage.alt = `Photo from ${post.title}`;
-  }
+  const images = post.images?.length ? post.images : (post.image ? [post.image] : []);
+  viewerImageWrap.hidden = images.length === 0;
+  viewerImageWrap.replaceChildren();
+  images.forEach((image, index) => {
+    const imageElement = document.createElement('img');
+    imageElement.src = image;
+    imageElement.alt = `${post.title}, image ${index + 1}`;
+    viewerImageWrap.append(imageElement);
+  });
   noteDialog.showModal();
 }
 function escapeHtml(value) {

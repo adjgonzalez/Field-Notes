@@ -80,12 +80,21 @@
       <label>Note <textarea id="post-body" name="body" rows="5" placeholder="Start with what you saw..." required></textarea></label>
       <label class="photo-picker">
         <span class="photo-icon">▧</span>
-        <span><strong>Add a photo</strong><small>Take a picture or choose from your phone</small></span>
-        <input id="post-image" type="file" accept="image/*" capture="environment">
+        <span><strong>Add photos</strong><small>Select one or more pictures from your phone</small></span>
+        <input id="post-image" type="file" accept="image/*" capture="environment" multiple>
       </label>
-      <div class="image-preview" id="image-preview" hidden><img id="preview-image" alt="Selected note preview"><button type="button" data-clear-image>Remove photo</button></div>
+      <div class="image-editor" id="image-editor" hidden>
+        <div class="crop-toolbar"><strong>Thumbnail crop</strong><span>Choose an image below, then adjust its framing.</span></div>
+        <div class="crop-box"><img id="preview-image" alt="Selected thumbnail preview"></div>
+        <label class="range-label">Zoom <input id="crop-zoom" type="range" min="100" max="220" value="100"></label>
+        <label class="range-label">Horizontal position <input id="crop-x" type="range" min="0" max="100" value="50"></label>
+        <label class="range-label">Vertical position <input id="crop-y" type="range" min="0" max="100" value="50"></label>
+        <div class="image-list" id="image-list"></div>
+        <button type="button" class="quiet-button" data-clear-image>Remove all photos</button>
+      </div>
+      <p class="upload-status" id="upload-status" role="status" aria-live="polite"></p>
       <div class="form-actions"><div><button type="button" class="quiet-button" data-save-draft>Save draft</button><button type="button" class="quiet-button" data-export-note>Export Markdown</button></div><button class="primary-button" type="submit">Publish note <span>↗</span></button></div>
-      <p class="form-note">Published notes are saved on this device. Export them as Markdown to add them to your GitHub site.</p>
+      <p class="form-note">Published notes and photos are shared through Firebase. Drafts stay on this device until published.</p>
     </form>
   </dialog>
 
