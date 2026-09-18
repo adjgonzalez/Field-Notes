@@ -97,12 +97,14 @@ cropZoom.addEventListener('input', updateCrop);
 cropX.addEventListener('input', updateCrop);
 cropY.addEventListener('input', updateCrop);
 document.querySelector('.crop-box').addEventListener('pointerdown', (event) => {
+  event.preventDefault();
   dragStart = { x: event.clientX, y: event.clientY, cropX: thumbnailCrop.x, cropY: thumbnailCrop.y };
   event.currentTarget.setPointerCapture(event.pointerId);
   event.currentTarget.classList.add('is-dragging');
 });
 document.querySelector('.crop-box').addEventListener('pointermove', (event) => {
   if (!dragStart) return;
+  event.preventDefault();
   const box = event.currentTarget.getBoundingClientRect();
   thumbnailCrop.x = clamp(dragStart.cropX + ((event.clientX - dragStart.x) / box.width) * 100, 0, 100);
   thumbnailCrop.y = clamp(dragStart.cropY + ((event.clientY - dragStart.y) / box.height) * 100, 0, 100);
@@ -111,6 +113,7 @@ document.querySelector('.crop-box').addEventListener('pointermove', (event) => {
 document.querySelector('.crop-box').addEventListener('pointerup', endCropDrag);
 document.querySelector('.crop-box').addEventListener('pointercancel', endCropDrag);
 function endCropDrag(event) {
+  event.preventDefault();
   dragStart = null;
   event.currentTarget.classList.remove('is-dragging');
   cropX.value = thumbnailCrop.x;
