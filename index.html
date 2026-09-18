@@ -45,6 +45,7 @@
       </div>
       <div class="notes-grid" id="notes-grid"></div>
       <div class="empty-state" id="empty-state">No notes published yet. Capture the first one when you are ready.</div>
+      <nav class="pagination" id="pagination" aria-label="Notes pages" hidden></nav>
     </section>
 
     <section class="sign-off wrap">
@@ -53,6 +54,18 @@
       <span>R</span>
     </section>
   </main>
+
+  <dialog class="note-dialog" id="note-dialog" aria-labelledby="note-dialog-title">
+    <article class="note-viewer">
+      <button class="close-button" type="button" data-close-note aria-label="Close note">×</button>
+      <div class="viewer-image-wrap" id="viewer-image-wrap" hidden><img id="viewer-image" alt=""></div>
+      <div class="viewer-body">
+        <p class="kicker" id="viewer-meta"></p>
+        <h2 id="note-dialog-title"></h2>
+        <p class="viewer-copy" id="viewer-copy"></p>
+      </div>
+    </article>
+  </dialog>
 
   <dialog class="capture-dialog" id="capture-dialog" aria-labelledby="capture-title">
     <form method="dialog" class="capture-form" id="capture-form">
@@ -77,6 +90,6 @@
   </dialog>
 
   <footer class="site-footer wrap"><span>© Ruben's Field Notes</span><span>Collected on the move</span></footer>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

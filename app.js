@@ -1,14 +1,37 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+import { addDoc, collection, deleteDoc, doc, getFirestore, onSnapshot, orderBy, query, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyABaNnzRLmXvtWSh_vEDjjEWsnBq4_d7ao',
+  authDomain: 'fieldnotes-4bcd8.firebaseapp.com',
+  projectId: 'fieldnotes-4bcd8',
+  storageBucket: 'fieldnotes-4bcd8.firebasestorage.app',
+  messagingSenderId: '891910049433',
+  appId: '1:891910049433:web:587239fab394b4b4e67208',
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getFirestore(app);
+const notesCollection = collection(database, 'notes');
 const captureDialog = document.querySelector('#capture-dialog');
-const readDialog = document.querySelector('#read-dialog');
 const captureForm = document.querySelector('#capture-form');
 const imageInput = document.querySelector('#post-image');
 const imagePreview = document.querySelector('#image-preview');
 const previewImage = document.querySelector('#preview-image');
 const notesGrid = document.querySelector('#notes-grid');
 const emptyState = document.querySelector('#empty-state');
+const pagination = document.querySelector('#pagination');
+const noteDialog = document.querySelector('#note-dialog');
+const viewerImageWrap = document.querySelector('#viewer-image-wrap');
+const viewerImage = document.querySelector('#viewer-image');
+const viewerMeta = document.querySelector('#viewer-meta');
+const viewerTitle = document.querySelector('#note-dialog-title');
+const viewerCopy = document.querySelector('#viewer-copy');
 const draftKey = 'rubens-field-note-draft';
-const postsKey = 'rubens-field-notes';
 let selectedImage = '';
+let posts = [];
+let currentPage = 1;
+const pageSize = 6;
 
 const openCapture = () => {
   const draft = JSON.parse(localStorage.getItem(draftKey) || 'null');
@@ -45,9 +68,18 @@ imageInput.addEventListener('change', () => {
   if (!file) return;
   const reader = new FileReader();
   reader.addEventListener('load', () => {
-    selectedImage = reader.result;
-    previewImage.src = selectedImage;
-    imagePreview.hidden = false;
+    const image = new Image();
+    image.addEventListener('load', () => {
+      const scale = Math.min(1, 1200 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.naturalWidth * scale);
+      canvas.height = Math.round(image.naturalHeight * scale);
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      selectedImage = canvas.toDataURL('image/jpeg', .78);
+      previewImage.src = selectedImage;
+      imagePreview.hidden = false;
+    });
+    image.src = reader.result;
   });
   reader.readAsDataURL(file);
 });
@@ -56,28 +88,48 @@ document.querySelector('[data-clear-image]').addEventListener('click', () => {
   imageInput.value = '';
   imagePreview.hidden = true;
 });
-notesGrid.addEventListener('click', (event) => {
+notesGrid.addEventListener('click', async (event) => {
   const deleteButton = event.target.closest('[data-delete-note]');
-  if (!deleteButton || !confirm('Delete this note?')) return;
-  const posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
-  const remainingPosts = posts.filter((post) => String(post.id) !== deleteButton.dataset.deleteNote);
-  localStorage.setItem(postsKey, JSON.stringify(remainingPosts));
-  renderPosts();
+  if (deleteButton) {
+    if (!confirm('Delete this note?')) return;
+    try {
+      await deleteDoc(doc(database, 'notes', deleteButton.dataset.deleteNote));
+    } catch (error) {
+      alert('The note could not be deleted. Check your Firebase connection.');
+      console.error(error);
+    }
+    return;
+  }
+  const noteButton = event.target.closest('[data-open-note]');
+  if (noteButton) openNote(noteButton.dataset.openNote);
 });
-
-captureForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  const post = { ...formData(), image: selectedImage, id: Date.now() };
-  const posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
-  posts.unshift(post);
-  localStorage.setItem(postsKey, JSON.stringify(posts));
-  localStorage.removeItem(draftKey);
-  captureForm.reset();
-  selectedImage = '';
-  imagePreview.hidden = true;
-  captureDialog.close();
+document.querySelector('[data-close-note]').addEventListener('click', () => noteDialog.close());
+pagination.addEventListener('click', (event) => {
+  const pageButton = event.target.closest('[data-page]');
+  if (!pageButton) return;
+  currentPage = Number(pageButton.dataset.page);
   renderPosts();
   document.querySelector('#notes').scrollIntoView({ behavior: 'smooth' });
+});
+
+captureForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const publishButton = captureForm.querySelector('[type="submit"]');
+  publishButton.disabled = true;
+  try {
+    await addDoc(notesCollection, { ...formData(), image: selectedImage, createdAt: serverTimestamp() });
+    localStorage.removeItem(draftKey);
+    captureForm.reset();
+    selectedImage = '';
+    imagePreview.hidden = true;
+    captureDialog.close();
+    document.querySelector('#notes').scrollIntoView({ behavior: 'smooth' });
+  } catch (error) {
+    alert('The note could not be published. Check that Firestore is enabled in Firebase.');
+    console.error(error);
+  } finally {
+    publishButton.disabled = false;
+  }
 });
 
 function formData() {
@@ -93,18 +145,57 @@ function prettyDate(date) {
   return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
 }
 function renderPosts() {
-  const posts = JSON.parse(localStorage.getItem(postsKey) || '[]');
   notesGrid.replaceChildren();
-  posts.forEach((post) => {
+  const pageCount = Math.ceil(posts.length / pageSize);
+  currentPage = Math.min(currentPage, Math.max(pageCount, 1));
+  const pagePosts = posts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  pagePosts.forEach((post) => {
     const card = document.createElement('article');
     card.className = `note-card ${post.image ? 'note-card-photo' : 'note-card-plain'}`;
-    const image = post.image ? `<div class="note-image" style="background-image:url('${post.image}')" role="img" aria-label="Photo from ${post.title}"></div>` : '';
-    card.innerHTML = `${image}<div class="note-content"><p class="post-meta">${prettyDate(post.date)} <span>•</span> ${post.location || 'FIELD NOTE'}</p><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(post.body).slice(0, 100)}${post.body.length > 100 ? '…' : ''}</p><button class="delete-note" type="button" data-delete-note="${post.id}">Delete</button><span class="note-arrow">↗</span></div>`;
+    card.dataset.openNote = post.id;
+    const image = post.image ? `<div class="note-image" style="background-image:url('${post.image}')" role="img" aria-label="Photo from ${escapeHtml(post.title)}"></div>` : '';
+    card.innerHTML = `${image}<div class="note-content"><button class="note-open" type="button" data-open-note="${post.id}"><p class="post-meta">${prettyDate(post.date)} <span>•</span> ${escapeHtml(post.location || 'FIELD NOTE')}</p><h3>${escapeHtml(post.title)}</h3><p>${escapeHtml(post.body).slice(0, 100)}${post.body.length > 100 ? '…' : ''}</p></button><button class="delete-note" type="button" data-delete-note="${post.id}">Delete</button><span class="note-arrow">↗</span></div>`;
     notesGrid.prepend(card);
   });
   emptyState.hidden = posts.length > 0;
+  renderPagination(pageCount);
+}
+function renderPagination(pageCount) {
+  pagination.hidden = pageCount <= 1;
+  pagination.replaceChildren();
+  for (let page = 1; page <= pageCount; page += 1) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `page-button${page === currentPage ? ' is-active' : ''}`;
+    button.dataset.page = page;
+    button.textContent = page;
+    button.setAttribute('aria-label', `Go to notes page ${page}`);
+    button.setAttribute('aria-current', page === currentPage ? 'page' : 'false');
+    pagination.append(button);
+  }
+}
+function openNote(noteId) {
+  const post = posts.find((note) => note.id === noteId);
+  if (!post) return;
+  viewerMeta.textContent = `${prettyDate(post.date)}  •  ${post.location || 'FIELD NOTE'}`;
+  viewerTitle.textContent = post.title;
+  viewerCopy.textContent = post.body;
+  viewerImageWrap.hidden = !post.image;
+  if (post.image) {
+    viewerImage.src = post.image;
+    viewerImage.alt = `Photo from ${post.title}`;
+  }
+  noteDialog.showModal();
 }
 function escapeHtml(value) {
   return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 }
-renderPosts();
+const notesQuery = query(notesCollection, orderBy('createdAt', 'desc'));
+onSnapshot(notesQuery, (snapshot) => {
+  posts = snapshot.docs.map((note) => ({ id: note.id, ...note.data() }));
+  renderPosts();
+}, (error) => {
+  emptyState.hidden = false;
+  emptyState.textContent = 'Notes are unavailable. Check the Firebase setup.';
+  console.error(error);
+});

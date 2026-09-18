@@ -22,9 +22,19 @@ This repository includes a GitHub Actions workflow in `.github/workflows/pages.y
 4. In GitHub, open **Settings → Pages** and choose **GitHub Actions** as the source.
 5. The site will be available at `https://YOUR-USERNAME.github.io/rubens-field-notes/` after the workflow finishes.
 
+## Firebase setup
+
+Published notes are stored in the Firebase project configured in `app.js`, so they are shared between browsers and phones. In the Firebase console:
+
+1. Open **Build → Firestore Database** and click **Create database**.
+2. Choose a location and select **Start in test mode** while setting up.
+3. Open **Build → Firestore Database → Rules** and replace the temporary rules before the test period ends.
+
+The site must be opened from `http://localhost:8000` or the GitHub Pages URL. Opening `index.html` directly with a `file://` URL will block the Firebase module imports.
+
 ## How posting works
 
-The capture form stores drafts and published notes in the browser's `localStorage`, so it works without a backend and remains usable on GitHub Pages. Those posts are private to that browser/device until you export them as Markdown and commit them to the repository.
+Published notes and photos are stored in Firestore, so they appear on every device. Drafts remain in the browser's `localStorage` until they are published.
 
 For permanent public posts, add a new article card in `index.html` and copy any image into the repository (for example, an `images/` folder), then push the change to GitHub. This keeps your blog fully static and free to host.
 

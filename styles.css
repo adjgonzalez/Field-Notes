@@ -33,6 +33,7 @@ h1 i { color: var(--coral); font-style: italic; }
 .intro-text { max-width: 350px; margin-bottom: 35px; color: var(--muted); font-size: 14px; line-height: 1.65; }
 .primary-button { display: inline-flex; align-items: center; gap: 12px; border: 0; padding: 15px 21px; border-radius: 30px; background: var(--ink); color: var(--paper); font-weight: 600; font-size: 12px; transition: transform .2s, background .2s; }
 .primary-button:hover { transform: translateY(-2px); background: var(--coral); }
+.primary-button:disabled { cursor: wait; opacity: .6; transform: none; }
 .button-icon { color: var(--lime); font-size: 18px; line-height: 0; }
 .intro-stamp { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 144px; height: 144px; border: 1px solid var(--line); border-radius: 50%; font-size: 9px; letter-spacing: .19em; }
 .intro-stamp strong { margin: 7px 0 4px; font-family: var(--serif); font-size: 31px; font-weight: 500; letter-spacing: -.05em; }
@@ -55,15 +56,19 @@ h2 { margin-bottom: 0; font-family: var(--serif); font-size: clamp(37px, 5vw, 57
 .notes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 19px; }
 .note-card { min-height: 370px; background: var(--paper-deep); position: relative; }
 .note-card-photo { display: flex; flex-direction: column; }
-.note-image { height: 170px; }
+.note-image { height: 170px; background-size: cover; background-position: center; }
 .image-market { background-image: url('https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=800&q=85'); }
 .image-cabin { background-image: url('https://images.unsplash.com/photo-1510798831971-661eb04b3739?auto=format&fit=crop&w=800&q=85'); }
 .note-card-plain { background: var(--lime); }
 .note-content { padding: 27px 27px 25px; }
+.note-open { display: block; width: 100%; min-height: 170px; border: 0; padding: 0; background: transparent; text-align: left; }
 .note-content h3 { max-width: 230px; margin-bottom: 12px; font-family: var(--serif); font-size: 28px; line-height: 1; font-weight: 500; letter-spacing: -.035em; }
 .note-content p:not(.post-meta) { max-width: 240px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .delete-note { position: absolute; left: 27px; bottom: 25px; border: 0; border-bottom: 1px solid var(--line); padding: 3px 0; background: transparent; color: var(--muted); font-size: 10px; }
 .note-arrow { position: absolute; right: 26px; bottom: 24px; font-size: 21px; }
+.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 34px; }
+.page-button { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11px; }
+.page-button.is-active { border-color: var(--ink); background: var(--ink); color: var(--paper); }
 .sign-off { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 25px; padding: 180px 0 90px; color: var(--muted); font-family: var(--serif); font-size: 17px; text-align: center; }
 .sign-off-line { height: 1px; background: var(--line); }
 .sign-off p { margin: 0; white-space: nowrap; }
@@ -97,6 +102,13 @@ dialog::backdrop { background: rgba(29, 41, 39, .6); backdrop-filter: blur(4px);
 .read-image { height: 250px; margin: 30px 0; background-image: url('https://images.unsplash.com/photo-1543783207-ec64e4d95325?auto=format&fit=crop&w=1200&q=85'); }
 .signature { margin: 35px 0 0; font-family: var(--serif); font-size: 26px; text-align: right; }
 .empty-state { padding: 60px 20px; border: 1px dashed var(--line); color: var(--muted); text-align: center; font-family: var(--serif); font-size: 20px; }
+.note-dialog { width: min(900px, calc(100% - 30px)); max-height: calc(100vh - 30px); overflow: auto; }
+.note-viewer { position: relative; }
+.viewer-image-wrap { display: flex; justify-content: center; min-height: 250px; background: #202724; }
+.viewer-image-wrap img { display: block; width: 100%; max-height: min(68vh, 680px); object-fit: contain; }
+.viewer-body { padding: 38px 9% 45px; }
+.viewer-body h2 { max-width: 650px; margin-bottom: 22px; }
+.viewer-copy { max-width: 650px; margin: 0; color: var(--muted); font-family: var(--serif); font-size: 20px; line-height: 1.55; white-space: pre-wrap; }
 @media (max-width: 680px) {
   .wrap, .site-header { width: min(100% - 32px, 1120px); }
   .site-header { padding: 19px 0; }
@@ -117,6 +129,7 @@ dialog::backdrop { background: rgba(29, 41, 39, .6); backdrop-filter: blur(4px);
   .note-card { min-height: 245px; }
   .note-image { height: 145px; }
   .note-content { padding: 22px; }
+  .note-open { min-height: 145px; }
   .delete-note { left: 22px; bottom: 23px; }
   .note-content h3 { font-size: 26px; }
   .sign-off { padding: 110px 0 65px; grid-template-columns: 1fr; gap: 16px; }
@@ -127,6 +140,8 @@ dialog::backdrop { background: rgba(29, 41, 39, .6); backdrop-filter: blur(4px);
   .capture-form h2, .read-article h2 { font-size: 38px; }
   .form-row { grid-template-columns: 1fr; gap: 0; }
   .read-article { padding: 45px 24px 32px; }
+  .viewer-body { padding: 32px 24px 36px; }
+  .viewer-copy { font-size: 18px; }
   .form-actions { align-items: flex-end; gap: 18px; }
   .form-actions > div { gap: 14px; }
 }
