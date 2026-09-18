@@ -18,6 +18,7 @@ const cloudinaryUploadPreset = 'field-notes';
 const captureDialog = document.querySelector('#capture-dialog');
 const captureForm = document.querySelector('#capture-form');
 const imageInput = document.querySelector('#post-image');
+const cameraInput = document.querySelector('#camera-image');
 const imageEditor = document.querySelector('#image-editor');
 const previewImage = document.querySelector('#preview-image');
 const imageList = document.querySelector('#image-list');
@@ -40,6 +41,7 @@ let selectedImages = [];
 let thumbnailCrop = { zoom: 100, x: 50, y: 50 };
 let posts = [];
 let currentPage = 1;
+let dragStart = null;
 const pageSize = 6;
 
 const openCapture = () => {
@@ -72,27 +74,52 @@ document.querySelector('[data-export-note]').addEventListener('click', () => {
   URL.revokeObjectURL(link.href);
 });
 
-imageInput.addEventListener('change', () => {
-  selectedImages = [];
-  selectedImage = '';
-  uploadStatus.textContent = imageInput.files.length ? 'Processing photos...' : '';
-  Promise.all([...imageInput.files].map(compressImage)).then((images) => {
-    selectedImages = images;
+imageInput.addEventListener('change', () => addFiles(imageInput.files));
+cameraInput.addEventListener('change', () => addFiles(cameraInput.files));
+function addFiles(files) {
+  if (!files.length) return;
+  uploadStatus.textContent = 'Processing photos...';
+  Promise.all([...files].map(compressImage)).then((images) => {
+    selectedImages.push(...images);
     if (selectedImages.length) {
-      selectedImage = selectedImages[0].src;
+      selectedImage ||= selectedImages[0].src;
       thumbnailCrop = { zoom: 100, x: 50, y: 50 };
     }
     renderImageEditor();
-    uploadStatus.textContent = selectedImages.length ? `${selectedImages.length} photo${selectedImages.length === 1 ? '' : 's'} ready` : '';
+    uploadStatus.textContent = `${selectedImages.length} photo${selectedImages.length === 1 ? '' : 's'} ready`;
   }).catch((error) => {
     uploadStatus.textContent = 'A photo could not be processed. Try another image.';
     console.error(error);
   });
-});
+  });
+}
 document.querySelector('[data-clear-image]').addEventListener('click', clearImages);
 cropZoom.addEventListener('input', updateCrop);
 cropX.addEventListener('input', updateCrop);
 cropY.addEventListener('input', updateCrop);
+document.querySelector('.crop-box').addEventListener('pointerdown', (event) => {
+  dragStart = { x: event.clientX, y: event.clientY, cropX: thumbnailCrop.x, cropY: thumbnailCrop.y };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  event.currentTarget.classList.add('is-dragging');
+});
+document.querySelector('.crop-box').addEventListener('pointermove', (event) => {
+  if (!dragStart) return;
+  const box = event.currentTarget.getBoundingClientRect();
+  thumbnailCrop.x = clamp(dragStart.cropX + ((event.clientX - dragStart.x) / box.width) * 100, 0, 100);
+  thumbnailCrop.y = clamp(dragStart.cropY + ((event.clientY - dragStart.y) / box.height) * 100, 0, 100);
+  applyCropStyles();
+});
+document.querySelector('.crop-box').addEventListener('pointerup', endCropDrag);
+document.querySelector('.crop-box').addEventListener('pointercancel', endCropDrag);
+function endCropDrag(event) {
+  dragStart = null;
+  event.currentTarget.classList.remove('is-dragging');
+  cropX.value = thumbnailCrop.x;
+  cropY.value = thumbnailCrop.y;
+}
+function clamp(value, minimum, maximum) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
 
 function compressImage(file) {
   return new Promise((resolve, reject) => {
@@ -123,8 +150,7 @@ function compressImage(file) {
 function renderImageEditor() {
   imageEditor.hidden = selectedImages.length === 0;
   previewImage.src = selectedImage;
-  previewImage.style.objectPosition = `${thumbnailCrop.x}% ${thumbnailCrop.y}%`;
-  previewImage.style.transform = `scale(${thumbnailCrop.zoom / 100})`;
+  applyCropStyles();
   cropZoom.value = thumbnailCrop.zoom;
   cropX.value = thumbnailCrop.x;
   cropY.value = thumbnailCrop.y;
@@ -137,6 +163,10 @@ function renderImageEditor() {
     button.innerHTML = `<img src="${image.src}" alt="${escapeHtml(image.name)}"><span>${index + 1}</span>`;
     imageList.append(button);
   });
+}
+function applyCropStyles() {
+  previewImage.style.objectPosition = `${thumbnailCrop.x}% ${thumbnailCrop.y}%`;
+  previewImage.style.transform = `scale(${thumbnailCrop.zoom / 100})`;
 }
 imageList.addEventListener('click', (event) => {
   const choice = event.target.closest('[data-image-index]');
@@ -153,6 +183,7 @@ function clearImages() {
   selectedImage = '';
   selectedImages = [];
   imageInput.value = '';
+  cameraInput.value = '';
   imageEditor.hidden = true;
   uploadStatus.textContent = '';
 }

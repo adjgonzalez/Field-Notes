@@ -80,11 +80,16 @@
       <label>Note <textarea id="post-body" name="body" rows="5" placeholder="Start with what you saw..." required></textarea></label>
       <label class="photo-picker">
         <span class="photo-icon">▧</span>
-        <span><strong>Add photos</strong><small>Select one or more pictures from your phone</small></span>
-        <input id="post-image" type="file" accept="image/*" capture="environment" multiple>
+        <span><strong>Choose photos</strong><small>Select one or more pictures from your phone</small></span>
+        <input id="post-image" type="file" accept="image/*" multiple>
+      </label>
+      <label class="photo-picker photo-picker-secondary">
+        <span class="photo-icon">⌾</span>
+        <span><strong>Take a photo</strong><small>Use the camera and add it to this note</small></span>
+        <input id="camera-image" type="file" accept="image/*" capture="environment">
       </label>
       <div class="image-editor" id="image-editor" hidden>
-        <div class="crop-toolbar"><strong>Thumbnail crop</strong><span>Choose an image below, then adjust its framing.</span></div>
+        <div class="crop-toolbar"><strong>Thumbnail crop</strong><span>Drag the image to frame it. Choose an image below.</span></div>
         <div class="crop-box"><img id="preview-image" alt="Selected thumbnail preview"></div>
         <label class="range-label">Zoom <input id="crop-zoom" type="range" min="100" max="220" value="100"></label>
         <label class="range-label">Horizontal position <input id="crop-x" type="range" min="0" max="100" value="50"></label>
